@@ -89,7 +89,7 @@
         <div class="toolbar"><label for="format">输入格式</label><select id="format"><option value="hex">Hex 十六进制</option><option value="base64">Base64 / Base64URL</option><option value="bytes">十进制字节数组</option></select><span class="spacer"></span><button class="small" id="example" type="button">载入示例</button><button class="small" id="import" type="button">导入二进制</button><input id="file" type="file" hidden></div>
         <div class="editor-wrap source-editor"><pre id="input-highlight" aria-hidden="true"></pre><textarea id="input" aria-label="MessagePack 输入数据" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="在这里粘贴十六进制数据…&#10;&#10;82 A4 6E 61 6D 65 A3 42 4C 45 A2 6F 6B C3&#10;&#10;Hex 模式可自动过滤日志；支持连续 Hex、空格、逗号、0x 前缀和 \x 字节。"></textarea></div>
         <div class="editor-foot"><span id="source-info">等待输入</span><span id="selection-info" title="选中字段名定位键，选中值定位该值；类型和长度字节也包含在内。">右侧选中 → 黄色定位</span></div>
-        <div class="options"><label for="offset">跳过包头 <input id="offset" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label for="tail">跳过包尾 <input id="tail" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label title="仅 Hex：自动屏蔽日志行并保留原文；关闭后严格校验全部输入"><input id="filter-logs" type="checkbox" checked>自动过滤日志</label><label><input id="multiple" type="checkbox">连续多条消息</label></div>
+        <div class="options"><label for="offset">跳过包头 <input id="offset" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label for="tail">跳过包尾 <input id="tail" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label title="仅 Hex：连续 Hex 行视为一包，空行或已过滤日志分包；每包先去头尾再拼接"><input id="per-packet" type="checkbox">每包跳过</label><label title="仅 Hex：自动屏蔽日志行并保留原文；关闭后严格校验全部输入"><input id="filter-logs" type="checkbox" checked>自动过滤日志</label><label><input id="multiple" type="checkbox">连续多条消息</label></div>
         <div class="actions"><button class="primary" id="convert" type="button">转换为 JSON <span aria-hidden="true">→</span></button><span class="shortcut">Ctrl / ⌘ + Enter</span></div>
       </section>
       <section class="panel" aria-labelledby="output-heading">
@@ -102,7 +102,7 @@
       </section>
     </div>
     <div class="help">
-      <details><summary>支持哪些输入？抓包数据怎么填？</summary><p>Hex 支持 <code>82 A2 6F 6B C3</code>、连续十六进制、<code>0x82, 0xa2</code>、<code>\x82\xa2</code>；每个字节必须写满两位。支持行尾 <code>\</code> 续行。十进制数组使用 <code>[130, 162, 111, 107, 195]</code>。Base64 请手动选择对应格式，避免将纯字母数字误判为 Hex。</p><p>“自动过滤日志”是独立开关，默认开启，仅作用于 Hex。夹在分包之间的普通日志行会被屏蔽；<code>[00:13:12.681]</code> 时间戳后若是 Hex，则保留数据。输入原文不变，结果下方会提示屏蔽的行数；黄色高亮会跳过日志。疑似 Hex 的坏行继续报错，无法区分的纯 Hex 日志需手动移除。多条完整消息请勾选“连续多条消息”。</p><p>“导入二进制”直接读取文件的原始字节；文本形式的 Hex / Base64 请复制到输入框。抓包时只复制负载中的字节，不要包含偏移地址、时间戳或 ASCII 列。已知包头或校验尾长度时可设置“跳过包头”和“跳过包尾”，两者作用于整段输入，跳过后至少需保留 1 字节。连续消息模式把剩余数据中的各条消息放进一个 JSON 数组，不会逐条去除包头包尾。开启“自动过滤日志”后，只按粘贴顺序拼接 Hex 片段，不按蓝牙分包序号重排。</p></details>
+      <details><summary>支持哪些输入？抓包数据怎么填？</summary><p>Hex 支持 <code>82 A2 6F 6B C3</code>、连续十六进制、<code>0x82, 0xa2</code>、<code>\x82\xa2</code>；每个字节必须写满两位。支持行尾 <code>\</code> 续行。十进制数组使用 <code>[130, 162, 111, 107, 195]</code>。Base64 请手动选择对应格式，避免将纯字母数字误判为 Hex。</p><p>“自动过滤日志”是独立开关，默认开启，仅作用于 Hex。夹在分包之间的普通日志行会被屏蔽；<code>[00:13:12.681]</code> 时间戳后若是 Hex，则保留数据。输入原文不变，结果下方会提示屏蔽的行数；黄色高亮会跳过日志。疑似 Hex 的坏行继续报错，无法区分的纯 Hex 日志需手动移除。多条完整消息请勾选“连续多条消息”。</p><p>“导入二进制”直接读取文件的原始字节；文本形式的 Hex / Base64 请复制到输入框。抓包时只复制负载中的字节，不要包含偏移地址、时间戳或 ASCII 列。已知包头或校验尾长度时可设置“跳过包头”和“跳过包尾”。“每包跳过”默认关闭，此时只去除整段最前的包头和最后的包尾。开启后（仅 Hex），连续 Hex 行视为同一包，空行或已过滤的日志行分隔数据包；每包先去头尾，再按原顺序拼接。请核对提示的包数：没有分隔的多包数据会被视为一包，需要在包之间添加空行；不要在同一包内部插入空行或日志。每包去头尾后至少需保留 1 字节，否则标红报错。原文保留，黄色定位跳过已去除的头尾。连续消息模式把拼接数据中的各条完整 MessagePack 消息放进 JSON 数组，与“每包跳过”独立；不会按蓝牙分包序号重排。</p></details>
       <details><summary>整数、二进制和扩展类型如何转换？</summary><p>超过 ±9007199254740991 的整数输出为十进制字符串，保留全部数字。二进制输出为 <code>{"$binary":"十六进制"}</code>；未知扩展为 <code>{"$ext":{"type":类型,"hex":"…"}}</code>；时间戳为 <code>{"$timestamp":{"seconds":"秒","nanoseconds":纳秒}}</code>，保留纳秒精度。</p><p>存在非字符串键或重复键的 Map 使用 <code>{"$map":[[键,值],…]}</code>，保留键值对。NaN、Infinity、-Infinity 和负零输出为 <code>{"$float":"…"}</code>。这些是本工具约定的 JSON 表示，特殊转换会显示提示。选中右侧字段名或值，左侧会以黄色定位对应字节（包括类型和长度标记），支持拖选、双击和键盘选择；Base64 按覆盖这些字节的编码字符定位。结构错误会在结果区标红；数组长度推断仅是诊断候选，不会修改输入，需对照协议确认。没有协议字段定义时，无法识别所有语义错误；64 KiB 以上数据仅显示基础错误。最多支持 128 层嵌套、200000 个值。</p></details>
     </div>
     <footer><span>MessagePack → JSON · Offline utility</span><span>数据不会上传，也不会保存到浏览器存储。</span></footer>
@@ -649,13 +649,77 @@
     }
   }
 
+  // 连续 Hex 行属于同一包；空行（包括等长屏蔽后的日志行）才结束当前包。
+  function splitHexPackets(text, index) {
+    const packets = [];
+    let byte = 0, current = null, lineNumber = 0;
+    for (const match of text.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)) {
+      if (!match[0]) continue;
+      lineNumber++;
+      if (!match[0].trim()) { current = null; continue; }
+      const first = byte, lineEnd = match.index + match[0].length;
+      while (byte < index.starts.length && index.starts[byte] < lineEnd) byte++;
+      if (byte === first) continue;
+      if (!current) {
+        current = { start: first, end: byte, firstLine: lineNumber, lastLine: lineNumber };
+        packets.push(current);
+      } else { current.end = byte; current.lastLine = lineNumber; }
+    }
+    return packets;
+  }
+
+  function trimHexPackets(report, original, head, tail) {
+    if (!Number.isSafeInteger(head) || head < 0 || !Number.isSafeInteger(tail) || tail < 0)
+      throw new Error("每包跳过的包头、包尾字节数必须是非负安全整数。");
+    const packets = splitHexPackets(report.text, report.index);
+    if (!packets.length) throw new Error("未识别到 Hex 数据包。");
+    const { bytes, index } = report;
+    for (let i = 0; i < packets.length; i++) {
+      const packet = packets[i], length = packet.end - packet.start;
+      if (head >= length || tail >= length - head) {
+        const error = new InputError(`第 ${i + 1} 包（原文第 ${packet.firstLine}～${packet.lastLine} 行）只有 ${length} 字节，跳过包头 ${head}、包尾 ${tail} 字节后至少要保留 1 字节。请检查跳过长度和分包边界。`, original, index.starts[packet.start], index.ends[packet.end - 1]);
+        error.fullSource = true;
+        throw error;
+      }
+    }
+    const length = bytes.length - packets.length * (head + tail);
+    const payload = new Uint8Array(length), starts = new Uint32Array(length), ends = new Uint32Array(length);
+    const ignoredRanges = index.ignoredRanges.slice();
+    let position = 0;
+    for (const packet of packets) {
+      const begin = packet.start + head, end = packet.end - tail;
+      payload.set(bytes.subarray(begin, end), position);
+      starts.set(index.starts.subarray(begin, end), position);
+      ends.set(index.ends.subarray(begin, end), position);
+      position += end - begin;
+      // 跨包选中 JSON 时，原文中的包头、包尾和日志均不染成黄色。
+      if (head) ignoredRanges.push({ start: index.starts[packet.start], end: index.ends[begin - 1] });
+      if (tail) ignoredRanges.push({ start: index.starts[end], end: index.ends[packet.end - 1] });
+    }
+    return {
+      ...report, bytes: payload, index: { starts, ends, ignoredRanges: mergeRanges(ignoredRanges) },
+      rawByteLength: bytes.length, packetCount: packets.length, packetHead: head, packetTail: tail
+    };
+  }
+
+  function inputReportInfo(report) {
+    const parts = [];
+    if (report?.bytes) parts.push(`${(report.rawByteLength ?? report.bytes.length).toLocaleString()} 字节`);
+    if (report?.packetCount) parts.push(`${report.packetCount} 包`, `有效 ${report.bytes.length.toLocaleString()} 字节`);
+    if (report?.ignoredLineNumbers.length) parts.push(`已屏蔽 ${report.ignoredLineNumbers.length} 行日志`);
+    return parts.join(" · ");
+  }
+
   function inputReportNotes(report) {
     if (!report) return [];
     const notes = [];
     const ignored = report.ignoredLineNumbers;
     if (ignored.length) notes.push(`已屏蔽 ${ignored.length} 行日志（第 ${ignored.slice(0, 12).join("、")}${ignored.length > 12 ? "…" : ""} 行），原始输入保留。`);
     if (report.timestampLineNumbers.length) notes.push(`已忽略 ${report.timestampLineNumbers.length} 行 Hex 前的时间戳。`);
-    if (notes.length) notes.push("剩余 Hex 按原顺序拼接；包头、包尾和偏移按有效字节计算。多条完整消息请勾选“连续多条消息”。");
+    if (report.packetCount) {
+      notes.push(`已识别 ${report.packetCount} 包，每包跳过包头 ${report.packetHead}、包尾 ${report.packetTail} 字节，合计去除 ${report.rawByteLength - report.bytes.length} 字节。偏移按去头尾后的拼接数据计算。`);
+      notes.push("连续 Hex 行为一包，空行或已过滤日志分包，请核对包数；分包按原顺序拼接，不按序号重排。多条完整消息请勾选“连续多条消息”。");
+    } else if (notes.length) notes.push("剩余 Hex 按原顺序拼接；当前只去除整段最前的包头和最后的包尾。多条完整消息请勾选“连续多条消息”。");
     return notes;
   }
 
@@ -944,18 +1008,30 @@
       bytes = inputReport.bytes;
       inputIndex = inputReport.index;
       sourceIndex = inputIndex;
-      $("source-info").textContent = `${bytes.length.toLocaleString()} 字节${inputReport.ignoredLineNumbers.length ? ` · 已屏蔽 ${inputReport.ignoredLineNumbers.length} 行日志` : ""}`;
+      $("source-info").textContent = inputReportInfo(inputReport);
       const offsetText = $("offset").value.trim();
       const tailText = $("tail").value.trim();
       if (!/^\d+$/.test(offsetText)) throw new Error("跳过包头字节数必须是非负整数。");
       if (!/^\d+$/.test(tailText)) throw new Error("跳过包尾字节数必须是非负整数。");
       options = { offset: Number(offsetText), tail: Number(tailText), multiple: $("multiple").checked };
+      const perPacket = $("format").value === "hex" && $("per-packet").checked;
+      if (perPacket) {
+        inputReport = trimHexPackets(inputReport, $("input").value, options.offset, options.tail);
+        bytes = inputReport.bytes;
+        inputIndex = sourceIndex = inputReport.index;
+        $("source-info").textContent = inputReportInfo(inputReport);
+        // 各包已去头尾，解码器不能再对拼接数据重复裁剪。
+        options.offset = options.tail = 0;
+      }
       lastResult = decodeMessagePack(bytes, options);
       formatOutput();
       $("copy").disabled = false;
       $("download").disabled = false;
       $("timing").textContent = `${(performance.now() - start).toFixed(1)} ms`;
-      status(`转换成功 · 已解析 ${lastResult.consumed.toLocaleString()} 字节${Number(offsetText) ? `，跳过包头 ${Number(offsetText)} 字节` : ""}${Number(tailText) ? `，跳过包尾 ${Number(tailText)} 字节` : ""}。`, "success");
+      const skipSummary = perPacket
+        ? `，${inputReport.packetCount} 包各跳过头 ${Number(offsetText)} / 尾 ${Number(tailText)} 字节`
+        : `${Number(offsetText) ? `，整段跳过包头 ${Number(offsetText)} 字节` : ""}${Number(tailText) ? `，整段跳过包尾 ${Number(tailText)} 字节` : ""}`;
+      status(`转换成功 · 已解析 ${lastResult.consumed.toLocaleString()} 字节${skipSummary}。`, "success");
       const notes = [...inputReportNotes(inputReport), ...lastResult.notes];
       if (notes.length) {
         $("warnings").textContent = notes.join("\n");
@@ -983,7 +1059,7 @@
       if (filterNotes.length) {
         $("warnings").textContent = filterNotes.join("\n");
         $("warnings").hidden = false;
-        $("source-info").textContent = `${bytes ? bytes.length.toLocaleString() + " 字节 · " : ""}已屏蔽 ${inputReport.ignoredLineNumbers.length} 行日志`;
+        $("source-info").textContent = inputReportInfo(inputReport);
       }
       $("locate-error").disabled = !$("output").querySelector(".diagnostic-mark");
       $("result-info").textContent = diagnostic.inferred ? "结构推测预览 · 原始输入未修改 · 不可导出" : "格式诊断 · 不可导出";
@@ -1013,9 +1089,10 @@
   });
   function syncLogFilterControl() {
     $("filter-logs").disabled = $("format").value !== "hex";
+    $("per-packet").disabled = $("format").value !== "hex";
   }
   syncLogFilterControl();
-  for (const id of ["format", "multiple", "filter-logs"]) $(id).addEventListener("change", () => {
+  for (const id of ["format", "multiple", "filter-logs", "per-packet"]) $(id).addEventListener("change", () => {
     fileVersion++;
     if (id === "format") { $("source-info").textContent = "输入格式已切换"; syncLogFilterControl(); }
     scheduleAutoConvert();
