@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="离线 MessagePack 转 JSON 工具，支持十六进制、Base64 和二进制文件。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src data:; base-uri 'none'; form-action 'none'">
+  <title>MessagePack → JSON · 离线转换工具</title>
+  <style>
+    :root { color-scheme: light; --ink:#182c3c; --muted:#697c89; --line:#dbe4e9; --green:#12735b; --paper:#fff; --bg:#f3f6f7; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif; font-size:14px; }
+    button,input,select,textarea { font:inherit; }
+    button,select,summary { cursor:pointer; }
+    button { border:1px solid var(--line); background:var(--paper); border-radius:6px; padding:7px 11px; color:var(--ink); font-weight:600; transition:background .15s,border-color .15s; }
+    button:hover { background:#edf4f1; border-color:#9fbdb0; }
+    button:disabled { cursor:not-allowed; opacity:.45; }
+    :focus-visible { outline:3px solid #67ad98; outline-offset:3px; }
+    .topbar { border-bottom:1px solid var(--line); background:#fff; }
+    .top-inner { padding:6px 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:750; letter-spacing:.02em; }
+    .brand-mark { display:grid; place-items:center; width:24px; height:24px; border-radius:6px; background:var(--ink); color:white; font:700 14px Consolas,monospace; }
+    .offline { display:flex; align-items:center; gap:8px; font-size:12px; color:#44705f; }
+    .dot { width:7px; height:7px; background:#209874; border-radius:50%; }
+    main { max-width:none; margin:0; padding:10px 12px; }
+    .intro { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .intro > div:first-child { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 16px; }
+    h1 { font-size:22px; line-height:1.3; letter-spacing:-.04em; margin:0; }
+    h1 span { color:#8da199; font-weight:400; padding:0 5px; }
+    .intro p:last-child { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+    .privacy { flex-shrink:0; color:var(--muted); font-size:11px; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:12px; align-items:stretch; height:calc(100vh - 112px); height:calc(100dvh - 112px); min-height:500px; }
+    .panel { display:flex; flex-direction:column; background:white; border:1px solid var(--line); border-radius:9px; overflow:hidden; min-width:0; min-height:0; box-shadow:0 3px 12px #18382c03; }
+    .panel > * { flex-shrink:0; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--line); }
+    .title { display:flex; align-items:center; gap:10px; font-weight:700; }
+    .step { font:12px Consolas,monospace; color:var(--green); border:1px solid #cfe2da; padding:3px 6px; border-radius:4px; }
+    .caption { font:12px Consolas,monospace; color:var(--muted); }
+    .editor-tools { display:flex; align-items:center; gap:6px; }
+    .toolbar { padding:8px 12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:44px; }
+    .toolbar label { color:var(--muted); font-size:12px; }
+    select { border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:5px 22px 5px 8px; background:white; font-size:12px; }
+    .small { padding:6px 9px; font-size:12px; }
+    .spacer { flex:1; }
+    .editor-wrap { margin:0 12px; position:relative; display:flex; flex:1 1 0; min-height:180px; }
+    textarea, #output { width:100%; height:100%; min-height:0; resize:none; padding:10px; border:1px solid var(--line); border-radius:6px; background:#fbfcfd; color:var(--ink); font:13px/1.45 Consolas,"Cascadia Code","Microsoft YaHei",monospace; tab-size:2; display:block; }
+    .source-editor { background:#fbfcfd; border-radius:6px; }
+    #input { position:relative; z-index:1; background:transparent; white-space:pre-wrap; overflow-wrap:break-word; }
+    #input-highlight { position:absolute; top:0; left:0; width:100%; height:100%; margin:0; padding:10px; border:1px solid transparent; border-radius:6px; overflow:hidden; pointer-events:none; color:transparent; font:13px/1.45 Consolas,"Cascadia Code","Microsoft YaHei",monospace; tab-size:2; white-space:pre-wrap; overflow-wrap:break-word; }
+    #input-highlight mark { color:transparent; background:#ffe36b; border-radius:2px; }
+    textarea::placeholder { color:#8b9ba5; }
+    #output { margin:0; background:#f4f8f6; border-color:#dce7e0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+    #output:empty::before { content:attr(data-placeholder); color:#8b9ba5; }
+    .diagnostic-note { display:block; color:#a62626; font-weight:600; }
+    .diagnostic-mark { color:#b42318; background:#ffe9e6; text-decoration:underline dotted #c4493f; text-underline-offset:3px; border-radius:2px; }
+    .editor-foot { min-height:24px; padding:5px 13px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 10px; color:var(--muted); font-size:11px; }
+    .editor-foot span { overflow-wrap:anywhere; }
+    .options { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; padding:5px 12px; min-height:38px; }
+    .options label { display:flex; align-items:center; gap:7px; color:#536775; font-size:12px; }
+    input[type=checkbox] { accent-color:var(--green); width:15px; height:15px; }
+    input[type=number] { width:60px; border:1px solid var(--line); padding:4px 6px; border-radius:5px; }
+    .actions { padding:6px 12px 10px; display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .primary { border-color:var(--green); background:var(--green); color:white; padding:8px 16px; }
+    .primary:hover { background:#0e5d49; border-color:#0e5d49; }
+    .shortcut { color:var(--muted); font-size:11px; }
+    #status { margin:4px 12px 10px; border-radius:6px; padding:7px 9px; background:#f3f6f7; color:#5c707c; font-size:12px; line-height:1.5; max-height:90px; overflow:auto; overflow-wrap:anywhere; white-space:pre-wrap; }
+    #status[data-kind=success] { background:#eaf5ef; color:#28654b; }
+    #status[data-kind=error] { background:#fff0ee; color:#a73e32; }
+    #warnings { margin:0 12px 10px; padding:7px 9px; border:1px solid #e8dcc2; border-radius:6px; background:#fffbf2; color:#846b35; font-size:12px; line-height:1.5; max-height:90px; overflow:auto; overflow-wrap:anywhere; white-space:pre-wrap; }
+    [hidden] { display:none !important; }
+    .help { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    details { border:1px solid var(--line); border-radius:7px; background:#f9fbfb; padding:9px 12px; }
+    summary { font-size:12px; font-weight:650; }
+    details p { color:var(--muted); font-size:12px; line-height:1.9; margin:10px 0 0; }
+    code { font-family:Consolas,monospace; color:#365d50; overflow-wrap:anywhere; }
+    footer { display:flex; justify-content:space-between; gap:12px; margin-top:10px; color:#87969f; font-size:11px; }
+    @media(max-width:1100px) { .privacy { display:none; } }
+    @media(max-width:760px) { .workspace,.help { grid-template-columns:1fr; } .workspace { height:auto; min-height:0; } .editor-wrap { flex:none; } textarea, #output { height:65vh; height:65dvh; min-height:340px; resize:vertical; } .intro > div:first-child { display:block; } .intro p:last-child { margin-top:3px; } }
+    @media(max-width:480px) { main { padding:8px; } .top-inner { padding:6px 8px; } .offline { font-size:11px; } .caption { font-size:10px; } .shortcut { display:none; } footer { flex-direction:column; gap:4px; } }
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="top-inner"><div class="brand"><span class="brand-mark" aria-hidden="true">{ }</span> PACK / 数据工具</div><div class="offline"><span class="dot" aria-hidden="true"></span>离线可用 · 本地处理</div></div></header>
+  <main>
+    <div class="intro"><div><h1>MessagePack <span>→</span> JSON</h1><p>粘贴抓包数据，查看结构化结果。数据只在当前浏览器中处理。</p></div><div class="privacy">无需安装 · 无需联网 · 单文件</div></div>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="input-heading">
+        <div class="panel-head"><div class="title" id="input-heading"><span class="step">01</span>输入数据</div><div class="editor-tools" role="group" aria-label="输入操作"><button class="small" id="copy-input" type="button" aria-label="复制输入" title="复制全部输入数据" disabled>复制</button><button class="small" id="paste-input" type="button" aria-label="粘贴输入" title="用剪贴板内容替换输入，并自动解析">粘贴</button><button class="small" id="clear" type="button" aria-label="清除输入和结果" title="清除输入、结果和包头包尾设置">清除</button></div></div>
+        <div class="toolbar"><label for="format">输入格式</label><select id="format"><option value="hex">Hex 十六进制</option><option value="base64">Base64 / Base64URL</option><option value="bytes">十进制字节数组</option></select><span class="spacer"></span><button class="small" id="example" type="button">载入示例</button><button class="small" id="import" type="button">导入二进制</button><input id="file" type="file" hidden></div>
+        <div class="editor-wrap source-editor"><pre id="input-highlight" aria-hidden="true"></pre><textarea id="input" aria-label="MessagePack 输入数据" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="在这里粘贴十六进制数据…&#10;&#10;82 A4 6E 61 6D 65 A3 42 4C 45 A2 6F 6B C3&#10;&#10;支持连续 Hex、空格、逗号、0x 前缀和 \x 字节。"></textarea></div>
+        <div class="editor-foot"><span id="source-info">等待输入</span><span id="selection-info" title="选中字段名定位键，选中值定位该值；类型和长度字节也包含在内。">右侧选中 → 黄色定位</span></div>
+        <div class="options"><label for="offset">跳过包头 <input id="offset" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label for="tail">跳过包尾 <input id="tail" type="number" value="0" min="0" step="1" inputmode="numeric"> 字节</label><label><input id="multiple" type="checkbox">连续多条消息</label></div>
+        <div class="actions"><button class="primary" id="convert" type="button">转换为 JSON <span aria-hidden="true">→</span></button><span class="shortcut">Ctrl / ⌘ + Enter</span></div>
+      </section>
+      <section class="panel" aria-labelledby="output-heading">
+        <div class="panel-head"><div class="title" id="output-heading"><span class="step">02</span>转换结果</div><span class="caption">JSON</span></div>
+        <div class="toolbar"><label for="indent">缩进</label><select id="indent"><option value="2">2 空格</option><option value="4">4 空格</option><option value="0">压缩</option></select><span class="spacer"></span><button class="small" id="locate-error" type="button" disabled>定位异常</button><button class="small" id="copy" type="button" disabled>复制 JSON</button><button class="small" id="download" type="button" disabled>下载 .json</button></div>
+        <div class="editor-wrap"><pre id="output" aria-label="JSON 转换结果" role="textbox" aria-readonly="true" aria-multiline="true" tabindex="0" data-placeholder="转换后的 JSON 会显示在这里；格式问题会标红。"></pre></div>
+        <div class="editor-foot"><span id="result-info">等待转换</span><span id="timing">—</span></div>
+        <div id="status" role="status" aria-live="polite" data-kind="idle">数据更新后自动解析（停止输入 300 毫秒后），也可载入示例或手动转换。</div>
+        <div id="warnings" hidden></div>
+      </section>
+    </div>
+    <div class="help">
+      <details><summary>支持哪些输入？抓包数据怎么填？</summary><p>Hex 支持 <code>82 A2 6F 6B C3</code>、连续十六进制、<code>0x82, 0xa2</code>、<code>\x82\xa2</code>；每个字节必须写满两位。支持行尾 <code>\</code> 续行。十进制数组使用 <code>[130, 162, 111, 107, 195]</code>。Base64 请手动选择对应格式，避免将纯字母数字误判为 Hex。</p><p>“导入二进制”直接读取文件的原始字节；文本形式的 Hex / Base64 请复制到输入框。抓包时只复制负载中的字节，不要包含偏移地址、时间戳或 ASCII 列。已知包头或校验尾长度时可设置“跳过包头”和“跳过包尾”，两者作用于整段输入，跳过后至少需保留 1 字节。连续消息模式把剩余数据中的各条消息放进一个 JSON 数组，不会逐条去除包头包尾，也不会自动重组蓝牙分包。</p></details>
+      <details><summary>整数、二进制和扩展类型如何转换？</summary><p>超过 ±9007199254740991 的整数输出为十进制字符串，保留全部数字。二进制输出为 <code>{"$binary":"十六进制"}</code>；未知扩展为 <code>{"$ext":{"type":类型,"hex":"…"}}</code>；时间戳为 <code>{"$timestamp":{"seconds":"秒","nanoseconds":纳秒}}</code>，保留纳秒精度。</p><p>存在非字符串键或重复键的 Map 使用 <code>{"$map":[[键,值],…]}</code>，保留键值对。NaN、Infinity、-Infinity 和负零输出为 <code>{"$float":"…"}</code>。这些是本工具约定的 JSON 表示，特殊转换会显示提示。选中右侧字段名或值，左侧会以黄色定位对应字节（包括类型和长度标记），支持拖选、双击和键盘选择；Base64 按覆盖这些字节的编码字符定位。结构错误会在结果区标红；数组长度推断仅是诊断候选，不会修改输入，需对照协议确认。没有协议字段定义时，无法识别所有语义错误；64 KiB 以上数据仅显示基础错误。最多支持 128 层嵌套、200000 个值。</p></details>
+    </div>
+    <footer><span>MessagePack → JSON · Offline utility</span><span>数据不会上传，也不会保存到浏览器存储。</span></footer>
+  </main>
+  <script>
+  "use strict";
+  // 解析逻辑独立于页面，便于阅读与验证。规范：https://github.com/msgpack/msgpack/blob/master/spec.md
+  const MAX_BYTES = 2 * 1024 * 1024;
+  const MAX_VALUES = 200000;
+  const MAX_DEPTH = 128;
+  const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+  const hexTable = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
+  const toHex = bytes => Array.from(bytes, byte => hexTable[byte]).join("");
+
+  class DecodeError extends Error {
+    constructor(message, offset) {
+      super(message);
+      this.name = "DecodeError";
+      this.offset = offset;
+    }
+  }
+
+  function checkSize(size) {
+    if (size > MAX_BYTES) throw new Error("数据超过 2 MiB，请截取需要分析的消息后再转换。");
+  }
+
+  function parseInput(text, format) {
+    if (text.length > MAX_BYTES * 7) throw new Error("输入文本过长，请减少数据量。");
+    let source = text.trim();
+    if (!source) throw new Error("请先粘贴 MessagePack 数据，或载入示例。");
+    if (format === "hex") return parseHexInput(source);
+    if (format === "base64") {
+      source = source.replace(/\s/g, "");
+      if (!/^[A-Za-z0-9+/_-]*={0,2}$/.test(source)) throw new Error("Base64 包含非法字符，或填充符 = 的位置不正确。");
+      const content = source.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+      if (!content || content.length % 4 === 1) throw new Error("Base64 长度不正确，数据可能不完整。");
+      const padded = content + "=".repeat((4 - content.length % 4) % 4);
+      if (source.includes("=") && source.length !== padded.length) throw new Error("Base64 的 = 填充数量不正确。");
+      checkSize(Math.floor(content.length * 3 / 4));
+      let decoded;
+      try { decoded = atob(padded); } catch { throw new Error("无法解码 Base64，请检查输入。"); }
+      if (btoa(decoded).replace(/=+$/, "") !== content) throw new Error("Base64 末尾填充位不正确，请检查是否漏字或抄错。");
+      return Uint8Array.from(decoded, char => char.charCodeAt(0));
+    }
+    if (format === "bytes") {
+      let values;
+      try { values = JSON.parse(source); } catch { throw new Error("字节数组必须是 JSON 数组，例如 [130, 162, 111, 107, 195]。"); }
+      if (!Array.isArray(values) || !values.length) throw new Error("请输入非空的十进制字节数组。");
+      checkSize(values.length);
+      if (values.some(value => !Number.isInteger(value) || value < 0 || value > 255)) throw new Error("字节数组中的每一项必须是 0～255 的整数。");
+      return Uint8Array.from(values);
+    }
+    throw new Error("未知输入格式。");
+  }
+
+  class MessagePackDecoder {
+    constructor(bytes, offset = 0) {
+      this.bytes = bytes;
+      this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      this.pos = offset;
+      this.nodes = 0;
+      this.notes = new Set();
+    }
+    fail(message, offset = this.pos) { throw new DecodeError(message, offset); }
+    need(count) {
+      if (count > this.bytes.length - this.pos) this.fail(`数据不完整：需要 ${count} 字节，只剩 ${this.bytes.length - this.pos} 字节。`);
+    }
+    u8() { this.need(1); return this.bytes[this.pos++]; }
+    number(method, size) {
+      this.need(size);
+      const value = this.view[method](this.pos, false); // MessagePack 多字节数值统一为大端。
+      this.pos += size;
+      return value;
+    }
+    chunk(size) {
+      this.need(size);
+      const result = this.bytes.subarray(this.pos, this.pos + size);
+      this.pos += size;
+      return result;
+    }
+    string(size) {
+      const start = this.pos;
+      const bytes = this.chunk(size);
+      try { return utf8.decode(bytes); }
+      catch { this.fail("字符串包含无效 UTF-8 字节，请检查包头位置或数据完整性。", start); }
+    }
+    integer(method) {
+      const value = this.number(method, 8);
+      if (value >= -9007199254740991n && value <= 9007199254740991n) return Number(value);
+      this.notes.add("64 位大整数已转换为十进制字符串，避免 JavaScript 精度丢失。");
+      return value; // 保留 BigInt 直到 JSON 输出，避免误认 Map 的键类型。
+    }
+    float(method, size) {
+      const value = this.number(method, size);
+      if (Number.isFinite(value) && !Object.is(value, -0)) return value;
+      this.notes.add("JSON 无法直接表示 NaN、Infinity 或负零，已使用 $float 保留。");
+      return { $float: Object.is(value, -0) ? "-0" : String(value) };
+    }
+    containerSize(size, perItem) {
+      this.need(size * perItem); // 每个值至少占一个字节，提前拒绝不可能的长度。
+      if (size * perItem > MAX_VALUES - this.nodes) this.fail("值的数量超过 200000，请缩小输入范围。");
+    }
+    array(size, depth) {
+      this.containerSize(size, 1);
+      const values = [];
+      for (let i = 0; i < size; i++) values.push(this.read(depth + 1));
+      return values;
+    }
+    map(size, depth) {
+      this.containerSize(size, 2);
+      const entries = [];
+      const seen = new Set();
+      let plain = true;
+      for (let i = 0; i < size; i++) {
+        const key = this.read(depth + 1);
+        const value = this.read(depth + 1);
+        if (typeof key !== "string" || seen.has(key)) plain = false;
+        seen.add(key);
+        entries.push([key, value]);
+      }
+      if (!plain) {
+        this.notes.add("Map 含非字符串键或重复键，已使用 $map 键值对数组完整保留。");
+        return { $map: entries };
+      }
+      const object = Object.create(null); // __proto__ 等名称也是普通数据键，不修改原型。
+      for (const [key, value] of entries) object[key] = value;
+      return object;
+    }
+    binary(size) {
+      const data = this.chunk(size);
+      this.notes.add("二进制数据已输出为 $binary 十六进制字符串。");
+      return { $binary: toHex(data) };
+    }
+    extension(size) {
+      const start = this.pos;
+      const type = this.number("getInt8", 1);
+      const data = this.chunk(size);
+      if (type !== -1) {
+        this.notes.add("扩展数据已使用 $ext 保留类型号和原始 Hex；自定义含义需要对应协议说明。");
+        return { $ext: { type, hex: toHex(data) } };
+      }
+      if (![4, 8, 12].includes(size)) this.fail("Timestamp 扩展长度必须为 4、8 或 12 字节。", start);
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      let seconds, nanoseconds = 0;
+      if (size === 4) seconds = BigInt(view.getUint32(0, false));
+      if (size === 8) {
+        const packed = view.getBigUint64(0, false);
+        nanoseconds = Number(packed >> 34n);
+        seconds = packed & 0x3ffffffffn;
+      }
+      if (size === 12) {
+        nanoseconds = view.getUint32(0, false);
+        seconds = view.getBigInt64(4, false);
+      }
+      if (nanoseconds > 999999999) this.fail("Timestamp 的纳秒字段超出 0～999999999。", start);
+      this.notes.add("Timestamp 已拆分为秒（字符串）和纳秒，保留原始精度。");
+      return { $timestamp: { seconds: seconds.toString(), nanoseconds } };
+    }
+    read(depth = 0) {
+      if (depth > MAX_DEPTH) this.fail("嵌套超过 128 层，请缩小输入范围。");
+      if (++this.nodes > MAX_VALUES) this.fail("值的数量超过 200000，请缩小输入范围。");
+      const start = this.pos;
+      const tag = this.u8();
+      if (tag <= 0x7f) return tag;
+      if (tag >= 0xe0) return tag - 256;
+      if ((tag & 0xe0) === 0xa0) return this.string(tag & 0x1f);
+      if ((tag & 0xf0) === 0x90) return this.array(tag & 0x0f, depth);
+      if ((tag & 0xf0) === 0x80) return this.map(tag & 0x0f, depth);
+      switch (tag) {
+        case 0xc0: return null;
+        case 0xc1: this.fail("遇到保留标记 0xC1，它不是有效的 MessagePack 类型。", start); break;
+        case 0xc2: return false;
+        case 0xc3: return true;
+        case 0xc4: return this.binary(this.u8());
+        case 0xc5: return this.binary(this.number("getUint16", 2));
+        case 0xc6: return this.binary(this.number("getUint32", 4));
+        case 0xc7: return this.extension(this.u8());
+        case 0xc8: return this.extension(this.number("getUint16", 2));
+        case 0xc9: return this.extension(this.number("getUint32", 4));
+        case 0xca: return this.float("getFloat32", 4);
+        case 0xcb: return this.float("getFloat64", 8);
+        case 0xcc: return this.u8();
+        case 0xcd: return this.number("getUint16", 2);
+        case 0xce: return this.number("getUint32", 4);
+        case 0xcf: return this.integer("getBigUint64");
+        case 0xd0: return this.number("getInt8", 1);
+        case 0xd1: return this.number("getInt16", 2);
+        case 0xd2: return this.number("getInt32", 4);
+        case 0xd3: return this.integer("getBigInt64");
+        case 0xd4: return this.extension(1);
+        case 0xd5: return this.extension(2);
+        case 0xd6: return this.extension(4);
+        case 0xd7: return this.extension(8);
+        case 0xd8: return this.extension(16);
+        case 0xd9: return this.string(this.u8());
+        case 0xda: return this.string(this.number("getUint16", 2));
+        case 0xdb: return this.string(this.number("getUint32", 4));
+        case 0xdc: return this.array(this.number("getUint16", 2), depth);
+        case 0xdd: return this.array(this.number("getUint32", 4), depth);
+        case 0xde: return this.map(this.number("getUint16", 2), depth);
+        case 0xdf: return this.map(this.number("getUint32", 4), depth);
+        default: this.fail("未知 MessagePack 类型。", start);
+      }
+    }
+  }
+
+  function decodeMessagePack(bytes, { offset = 0, tail = 0, multiple = false } = {}) {
+    checkSize(bytes.length);
+    if (!bytes.length) throw new Error("数据为空。");
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset >= bytes.length) throw new Error(`跳过包头字节数必须是 0～${bytes.length - 1} 的整数。`);
+    if (!Number.isSafeInteger(tail) || tail < 0 || tail >= bytes.length) throw new Error(`跳过包尾字节数必须是 0～${bytes.length - 1} 的整数。`);
+    const end = bytes.length - tail;
+    if (offset >= end) throw new Error("跳过包头和包尾后，至少需要保留 1 字节。");
+    // 只缩短尾部边界，保留原始索引，让错误偏移仍对应抓包中的字节位置。
+    const decoder = new InspectionDecoder(bytes.subarray(0, end), offset);
+    let value, count = 1;
+    if (multiple) {
+      value = [];
+      while (decoder.pos < end) value.push(decoder.readAt([value.length], 0));
+      count = value.length;
+    } else {
+      value = decoder.read();
+      if (decoder.pos !== end) decoder.fail(`解析一条消息后还剩 ${end - decoder.pos} 字节。若包含连续的 MessagePack 消息，请勾选“连续多条消息”；若为包尾或校验字段，请设置“跳过包尾”。`);
+    }
+    return { value, count, consumed: decoder.pos - offset, notes: Array.from(decoder.notes), trace: decoder, multiple };
+  }
+  function jsonStringify(value, indent = 2) {
+    return JSON.stringify(value, (_, item) => typeof item === "bigint" ? item.toString() : item, indent);
+  }
+
+  // 诊断只生成预览，不修改输入，也不把猜测结果当作成功解码的数据导出。
+  class InputError extends Error {
+    constructor(message, source, start, end) {
+      super(message);
+      this.name = "InputError";
+      Object.assign(this, { source, start, end });
+    }
+  }
+
+  function parseHexInput(source) {
+    const original = source;
+    // 只接受行尾的反斜杠续行；等长替换保留字符位置，不能随意删除非法字符。
+    source = source.replace(/\\[ \t]*\r?\n/g, match => " ".repeat(match.length));
+    if (source.startsWith("[") && source.endsWith("]")) source = " " + source.slice(1, -1) + " ";
+    const parts = [];
+    let pos = 0, length = 0;
+    const bad = (message, start, end) => { throw new InputError(message, original, start, end); };
+    while (pos < source.length) {
+      if (/[\s,;:-]/.test(source[pos])) { pos++; continue; }
+      const start = pos;
+      const prefixed = /^(?:0x|\\x)/i.test(source.slice(pos, pos + 2));
+      if (prefixed) pos += 2;
+      const match = /^[0-9a-f]+/i.exec(source.slice(pos));
+      if (!match) {
+        const token = /^[^\s,;:-]+/.exec(source.slice(start));
+        bad("Hex 中存在非法字符；每个字节应由两位十六进制数字组成。", start, start + (token ? token[0].length : 1));
+      }
+      // 相邻的 0x82 形式可以没有分隔符，不能把下一个 0x 的 0 吞进当前字节。
+      let digits = match[0];
+      if (prefixed && /^(?:0x|\\x)/i.test(source.slice(pos + 2, pos + 4))) digits = digits.slice(0, 2);
+      if (prefixed && digits.length !== 2) bad("0x / \\x 前缀后必须恰好是两位十六进制数字。", start, pos + digits.length);
+      if (digits.length % 2) bad("Hex 片段为奇数位；每个字节必须写满两位，例如 0A。", start, pos + digits.length);
+      parts.push(digits);
+      length += digits.length / 2;
+      checkSize(length);
+      pos += digits.length;
+    }
+    if (!length) throw new Error("未找到十六进制字节。");
+    const hex = parts.join("");
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    return bytes;
+  }
+
+  const diagnosticPath = route => "$" + route.map(key => typeof key === "number" ? `[${key}]` : /^[A-Za-z_$][\w$]*$/.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`).join("");
+
+  class InspectionDecoder extends MessagePackDecoder {
+    constructor(bytes, offset, overrides = new Map(), deadline = Infinity) {
+      super(bytes, offset);
+      this.overrides = overrides;
+      this.deadline = deadline;
+      this.records = [];
+      this.roots = [];
+      this.stack = [];
+      this.route = [];
+    }
+    readAt(route, depth) {
+      const previous = this.route;
+      this.route = route;
+      try { return this.read(depth); } finally { this.route = previous; }
+    }
+    read(depth = 0) {
+      if (this.records.length >= (Number.isFinite(this.deadline) ? 8000 : MAX_VALUES) || performance.now() > this.deadline) this.fail("已达到诊断工作量上限，请缩小输入范围。");
+      const node = { start: this.pos, end: this.pos, route: this.route, kind: "value", children: [], complete: false };
+      const parent = this.stack[this.stack.length - 1];
+      (parent ? parent.children : this.roots).push(node);
+      this.records.push(node);
+      this.stack.push(node);
+      try {
+        node.value = super.read(depth);
+        node.complete = true;
+        return node.value;
+      } catch (error) {
+        node.error = error.message;
+        throw error;
+      } finally {
+        node.end = this.pos;
+        this.stack.pop();
+      }
+    }
+    array(size, depth) {
+      const node = this.stack[this.stack.length - 1];
+      Object.assign(node, { kind: "array", declared: size, headerEnd: this.pos });
+      const count = this.overrides.get(node.start) ?? size;
+      this.containerSize(count, 1);
+      const values = [];
+      for (let i = 0; i < count; i++) values.push(this.readAt(node.route.concat(i), depth + 1));
+      return values;
+    }
+    map(size, depth) {
+      const node = this.stack[this.stack.length - 1];
+      Object.assign(node, { kind: "map", declared: size, pairs: [] });
+      this.containerSize(size, 2);
+      const entries = [], seen = new Set();
+      let plain = true;
+      for (let i = 0; i < size; i++) {
+        const pair = { keyIndex: this.records.length };
+        node.pairs.push(pair);
+        const key = this.readAt(node.route.concat(`{键 ${i}}`), depth + 1);
+        pair.key = this.records[pair.keyIndex];
+        pair.valueIndex = this.records.length;
+        const value = this.readAt(node.route.concat(typeof key === "string" ? key : `{值 ${i}}`), depth + 1);
+        pair.value = this.records[pair.valueIndex];
+        if (typeof key !== "string" || seen.has(key)) plain = false;
+        seen.add(key);
+        entries.push([key, value]);
+      }
+      if (!plain) {
+        this.notes.add("Map 含非字符串键或重复键，已使用 $map 键值对数组完整保留。");
+        return { $map: entries };
+      }
+      return Object.assign(Object.create(null), Object.fromEntries(entries));
+    }
+  }
+
+  function inspectBytes(bytes, options, overrides, deadline) {
+    const end = bytes.length - options.tail;
+    const decoder = new InspectionDecoder(bytes.subarray(0, end), options.offset, overrides, deadline);
+    let value, error;
+    try {
+      if (options.multiple) {
+        value = [];
+        while (decoder.pos < end) value.push(decoder.readAt([value.length], 0));
+      } else {
+        value = decoder.read();
+        if (decoder.pos !== end) decoder.fail(`消息结束后仍有 ${end - decoder.pos} 字节未解析。`);
+      }
+    } catch (failure) { error = failure; }
+    return { decoder, value, error };
+  }
+
+  function partialNode(node, records) {
+    if (!node) return "〈未读取〉";
+    if (node.complete) return node.value;
+    if (node.kind === "array") return node.children.length ? node.children.map(child => partialNode(child, records)) : ["〈数组内容未能解析〉"];
+    if (node.kind === "map") {
+      const entries = node.pairs.map(pair => [partialNode(pair.key || records[pair.keyIndex], records), partialNode(pair.value || records[pair.valueIndex], records)]);
+      if (entries.every(([key]) => typeof key === "string") && new Set(entries.map(([key]) => key)).size === entries.length) return Object.assign(Object.create(null), Object.fromEntries(entries));
+      return { $map: entries };
+    }
+    return `〈未解析：${node.error || "数据不完整"}〉`;
+  }
+
+  function valueShape(value) {
+    if (value === null) return "null";
+    if (Array.isArray(value)) return "array";
+    if (typeof value === "object") return "map:" + JSON.stringify(Object.keys(value).sort());
+    return typeof value;
+  }
+
+  function diagnoseMessagePack(bytes, options, originalError) {
+    const fallback = { title: "格式检查失败", message: originalError.message, offset: originalError.offset };
+    // 避免在大数据上做无界回溯；普通转换仍支持原来的 2 MiB 上限。
+    if (!(originalError instanceof DecodeError) || bytes.length > 65536) {
+      if (bytes.length > 65536) fallback.message += " 详细结构诊断仅适用于 64 KiB 以内的数据，请截取问题消息。";
+      return fallback;
+    }
+    const deadline = performance.now() + 250;
+    const trace = inspectBytes(bytes, options, new Map(), deadline);
+    const arrays = trace.decoder.records.filter(node => node.kind === "array" && node.declared > 0);
+    const candidates = [];
+    let attempts = 0;
+    for (const array of arrays) {
+      if (performance.now() > deadline || attempts >= 64) break;
+      const probe = new MessagePackDecoder(bytes.subarray(0, bytes.length - options.tail), array.headerEnd);
+      probe.nodes = MAX_VALUES - 8000;
+      let shape;
+      for (let count = 1; count <= 256 && probe.pos < probe.bytes.length; count++) {
+        if (performance.now() > deadline || attempts >= 64) break;
+        let next;
+        try { next = probe.read(); } catch { break; }
+        const currentShape = valueShape(next);
+        if (shape === undefined) shape = currentShape;
+        if (shape !== currentShape) break;
+        if (count === array.declared) continue;
+        attempts++;
+        const checked = inspectBytes(bytes, options, new Map([[array.start, count]]), deadline);
+        // 一个有效候选必须能解释完整消息；不借助异常 Map 键掩盖结构错位。
+        if (!checked.error && !Array.from(checked.decoder.notes).some(note => note.startsWith("Map 含"))) candidates.push({ array, count, checked });
+      }
+      if (candidates.length > 1) break;
+    }
+    if (candidates.length === 1) {
+      const { array, count, checked } = candidates[0];
+      const path = diagnosticPath(array.route);
+      const tag = bytes[array.start];
+      const suggestion = (tag & 0xf0) === 0x90 && count <= 15 ? ` 若确认这些元素属于该数组，长度标记应由 ${hexTable[tag].toUpperCase()} 改为 ${hexTable[0x90 | count].toUpperCase()}。` : "";
+      return {
+        title: "结构异常 · 推测预览",
+        message: `${path}：数组声明 ${array.declared} 项；按连续同类元素和完整外层结构检查，推测为 ${count} 项。长度标记在偏移 ${array.start}（0x${array.start.toString(16).toUpperCase()}）。${suggestion} 下方红色部分仅为诊断推测，原始输入未修改。`,
+        value: checked.value,
+        trace: checked.decoder,
+        multiple: options.multiple,
+        highlightRoutes: [array.route],
+        offset: array.start,
+        declared: array.declared,
+        suggested: count,
+        path,
+        inferred: true
+      };
+    }
+    const failedNode = trace.decoder.records.filter(node => !node.complete).pop();
+    const roots = trace.decoder.roots.map(node => partialNode(node, trace.decoder.records));
+    const partial = options.multiple ? roots : roots[0];
+    const errorInfo = { message: originalError.message, offset: originalError.offset };
+    const begin = Math.max(options.offset, (originalError.offset ?? options.offset) - 8);
+    errorInfo.nearbyHex = toHex(bytes.subarray(begin, Math.min(bytes.length - options.tail, begin + 24))).toUpperCase();
+    if (candidates.length > 1) fallback.message += " 数组长度存在多种可能解释，不能唯一确定，请对照协议。";
+    return {
+      ...fallback,
+      title: "格式检查失败 · 部分解析",
+      message: fallback.message + " 以下仅保留已读内容，〈未解析〉表示不完整位置；原始输入未修改。",
+      value: { $partial: partial === undefined ? "〈未解析〉" : partial, $error: errorInfo },
+      trace: trace.decoder,
+      multiple: options.multiple,
+      tracePrefix: ["$partial"],
+      highlightRoutes: [["$error"], ...(failedNode ? [["$partial", ...failedNode.route]] : [])]
+    };
+  }
+
+  function appendText(parent, text) { parent.appendChild(document.createTextNode(text)); }
+  function redText(parent, text, className = "diagnostic-note") {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    parent.appendChild(span);
+    return span;
+  }
+
+  // 字节索引对应原始输入字符，保留 0x / \x 前缀、空白和续行的位置。
+  function indexInput(text, format, length) {
+    const starts = new Uint32Array(length), ends = new Uint32Array(length);
+    if (format === "base64") {
+      const positions = [];
+      for (let i = 0; i < text.length; i++) if (!/\s/.test(text[i])) positions.push(i);
+      for (let i = 0; i < length; i++) {
+        starts[i] = positions[Math.floor(i * 8 / 6)];
+        ends[i] = positions[Math.ceil((i + 1) * 8 / 6) - 1] + 1;
+      }
+    } else {
+      const pattern = format === "hex" ? /(?:0x|\\x)?[0-9a-f]{2}/gi : /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+      let i = 0;
+      for (const match of text.matchAll(pattern)) {
+        if (i >= length) throw new Error("输入位置索引不一致。");
+        starts[i] = match.index;
+        ends[i++] = match.index + match[0].length;
+      }
+      if (i !== length) throw new Error("输入位置索引不一致。");
+    }
+    return { starts, ends };
+  }
+
+  // 按解析树建立映射，不按文本搜索；重复的字段名或数字仍有各自的字节位置。
+  function indexTrace(trace, multiple = false, prefix = []) {
+    const values = new Map(), keys = new Map();
+    if (!trace) return { values, keys };
+    const put = (map, route, node) => { if (node) map.set(JSON.stringify(route), node); };
+    const walk = (node, route) => {
+      if (!node) return;
+      put(values, route, node);
+      if (node.kind === "array") node.children.forEach((child, i) => walk(child, route.concat(i)));
+      if (node.kind !== "map") return;
+      const pairs = node.pairs.map(pair => ({
+        key: pair.key || trace.records[pair.keyIndex],
+        value: pair.value || trace.records[pair.valueIndex]
+      }));
+      const names = pairs.map(pair => partialNode(pair.key, trace.records));
+      const plain = names.every(key => typeof key === "string") && new Set(names).size === names.length;
+      if (!plain) put(values, route.concat("$map"), node);
+      pairs.forEach((pair, i) => {
+        if (plain) {
+          const childRoute = route.concat(names[i]);
+          put(keys, childRoute, pair.key);
+          walk(pair.value, childRoute);
+        } else {
+          const pairRoute = route.concat("$map", i);
+          if (pair.key) put(values, pairRoute, { start: pair.key.start, end: (pair.value || pair.key).end });
+          walk(pair.key, pairRoute.concat(0));
+          walk(pair.value, pairRoute.concat(1));
+        }
+      });
+    };
+    if (multiple) {
+      if (trace.roots.length) put(values, prefix, { start: trace.roots[0].start, end: trace.roots[trace.roots.length - 1].end });
+      trace.roots.forEach((node, i) => walk(node, prefix.concat(i)));
+    } else walk(trace.roots[0], prefix);
+    return { values, keys };
+  }
+
+  // JSON 文本位置和来源字节一一关联；只给异常片段创建 DOM，避免每个字节一个元素。
+  function mappedJson(value, indent, index, highlightRoutes = []) {
+    const chunks = [], links = [], marks = [], unit = " ".repeat(indent);
+    const targets = new Set(highlightRoutes.map(route => JSON.stringify(route)));
+    let position = 0;
+    const emit = (text, source) => {
+      const from = position;
+      chunks.push(text);
+      position += text.length;
+      if (source && source.end > source.start) links.push({ from, to: position, start: source.start, end: source.end });
+    };
+    const visit = (item, route, depth, inherited) => {
+      const routeKey = JSON.stringify(route), node = index.values.get(routeKey) || inherited;
+      const begin = position;
+      if (item === null || typeof item !== "object") emit(jsonStringify(item, 0), node);
+      else {
+        const array = Array.isArray(item), entries = array ? item.map((entry, i) => [i, entry]) : Object.entries(item);
+        emit(array ? "[" : "{", node);
+        entries.forEach(([key, entry], i) => {
+          const childRoute = route.concat(key), childKey = JSON.stringify(childRoute);
+          if (i) emit(",");
+          if (indent) emit("\n" + unit.repeat(depth + 1));
+          if (!array) {
+            const keyBegin = position;
+            emit(JSON.stringify(key), index.keys.get(childKey) || (node?.kind === "value" ? node : undefined));
+            if (targets.has(childKey)) marks.push({ from: keyBegin, to: position });
+            emit(indent ? ": " : ":");
+          }
+          // $binary / $ext 等 JSON 包装没有独立 MessagePack 标记，定位到整个原始值。
+          visit(entry, childRoute, depth + 1, node?.kind === "value" ? node : undefined);
+        });
+        if (entries.length && indent) emit("\n" + unit.repeat(depth));
+        emit(array ? "]" : "}", node);
+      }
+      if (targets.has(routeKey)) marks.push({ from: begin, to: position });
+    };
+    visit(value, [], 0);
+    return { text: chunks.join(""), links, marks };
+  }
+
+  function mergeRanges(ranges) {
+    const merged = [];
+    for (const range of ranges.slice().sort((a, b) => a.start - b.start || a.end - b.end)) {
+      const previous = merged[merged.length - 1];
+      if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+      else merged.push({ start: range.start, end: range.end });
+    }
+    return merged;
+  }
+
+  function appendMappedJson(parent, rendered, prefixLength = 0, message = "") {
+    outputLinks = rendered.links.map(link => ({ ...link, from: link.from + prefixLength, to: link.to + prefixLength }));
+    const ranges = mergeRanges(rendered.marks.map(mark => ({ start: mark.from, end: mark.to })));
+    let position = 0;
+    for (const range of ranges) {
+      appendText(parent, rendered.text.slice(position, range.start));
+      const marker = redText(parent, rendered.text.slice(range.start, range.end), "diagnostic-mark");
+      marker.title = message;
+      position = range.end;
+    }
+    appendText(parent, rendered.text.slice(position));
+  }
+
+  function syncInputHighlight() {
+    const input = $("input"), layer = $("input-highlight"), style = getComputedStyle(input);
+    layer.style.width = `${input.clientWidth + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)}px`;
+    layer.style.height = `${input.clientHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)}px`;
+    layer.scrollTop = input.scrollTop;
+    layer.scrollLeft = input.scrollLeft;
+  }
+
+  function clearSourceHighlight() {
+    highlightSignature = "";
+    $("input-highlight").replaceChildren();
+    $("selection-info").textContent = "右侧选中 → 黄色定位";
+    $("selection-info").title = "选中字段名定位键，选中值定位该值；类型和长度字节也包含在内。";
+  }
+
+  function showSourceHighlight(byteRanges, characterRanges = []) {
+    const mergedBytes = mergeRanges(byteRanges);
+    const ranges = characterRanges.slice();
+    if (sourceIndex) {
+      for (const range of mergedBytes) {
+        if (range.start >= 0 && range.end <= sourceIndex.starts.length && range.end > range.start)
+          ranges.push({ start: sourceIndex.starts[range.start], end: sourceIndex.ends[range.end - 1] });
+      }
+    }
+    const merged = mergeRanges(ranges);
+    const signature = JSON.stringify(merged);
+    if (signature === highlightSignature) return;
+    if (!merged.length) { clearSourceHighlight(); return; }
+    highlightSignature = signature;
+    const input = $("input"), layer = $("input-highlight"), fragment = document.createDocumentFragment();
+    let position = 0;
+    for (const range of merged) {
+      appendText(fragment, input.value.slice(position, range.start));
+      const mark = document.createElement("mark");
+      mark.textContent = input.value.slice(range.start, range.end);
+      fragment.appendChild(mark);
+      position = range.end;
+    }
+    appendText(fragment, input.value.slice(position) + "\u200b");
+    layer.replaceChildren(fragment);
+    syncInputHighlight();
+    const first = layer.querySelector("mark");
+    const rect = first?.getClientRects()[0], viewport = layer.getBoundingClientRect();
+    if (rect) {
+      if (rect.top < viewport.top + 10 || rect.bottom > viewport.bottom - 10)
+        input.scrollTop += rect.top - viewport.top - Math.min(60, input.clientHeight / 3);
+      if (rect.left < viewport.left + 10 || rect.right > viewport.right - 10)
+        input.scrollLeft += rect.left - viewport.left - 10;
+      syncInputHighlight();
+    }
+    const count = mergedBytes.reduce((sum, range) => sum + range.end - range.start, 0);
+    $("selection-info").textContent = count ? `已定位 ${count} 字节 · 偏移 ${mergedBytes[0].start}` : "已定位输入格式错误";
+    $("selection-info").title = mergedBytes.map(range => `[${range.start}, ${range.end})`).join("、") + "（偏移从 0 开始，含类型/长度标记）";
+  }
+
+  function updateSourceSelection() {
+    const output = $("output"), selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount || !outputLinks.length) { clearSourceHighlight(); return; }
+    const range = selection.getRangeAt(0);
+    if (!output.contains(range.startContainer) || !output.contains(range.endContainer)) { clearSourceHighlight(); return; }
+    const prefix = document.createRange();
+    prefix.selectNodeContents(output);
+    prefix.setEnd(range.startContainer, range.startOffset);
+    const from = prefix.toString().length, to = from + range.toString().length;
+    const byteRanges = [], characterRanges = [];
+    // 链接按输出顺序排列，二分定位第一个重叠片段，再读取选区覆盖的部分。
+    let low = 0, high = outputLinks.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (outputLinks[middle].to <= from) low = middle + 1; else high = middle;
+    }
+    for (let i = low; i < outputLinks.length && outputLinks[i].from < to; i++) {
+      const link = outputLinks[i];
+      if (link.characters) characterRanges.push(link.characters);
+      else byteRanges.push({ start: link.start, end: link.end });
+    }
+    showSourceHighlight(byteRanges, characterRanges);
+  }
+
+
+  function renderDiagnosticPreview(diagnostic) {
+    const output = $("output");
+    output.replaceChildren();
+    outputText = "";
+    outputLinks = [];
+    clearSourceHighlight();
+    redText(output, `${diagnostic.title}\n${diagnostic.message}\n\n`);
+    if (diagnostic.inputError) {
+      const error = diagnostic.inputError;
+      const start = Math.max(0, error.start - 100), end = Math.min(error.source.length, error.end + 100);
+      const prefix = error.source.slice(0, error.start);
+      const line = prefix.split("\n").length, column = error.start - prefix.lastIndexOf("\n");
+      appendText(output, `第 ${line} 行，第 ${column} 列：\n`);
+      appendText(output, (start ? "…" : "") + error.source.slice(start, error.start));
+      const from = output.textContent.length;
+      redText(output, error.source.slice(error.start, error.end), "diagnostic-mark");
+      const leading = $("input").value.length - $("input").value.trimStart().length;
+      outputLinks = [{ from, to: output.textContent.length, characters: { start: leading + error.start, end: leading + error.end } }];
+      appendText(output, error.source.slice(error.end, end) + (end < error.source.length ? "…" : ""));
+      return;
+    }
+    if (!("value" in diagnostic)) return;
+    const index = indexTrace(diagnostic.trace, diagnostic.multiple, diagnostic.tracePrefix || []);
+    const rendered = mappedJson(diagnostic.value, Number($("indent").value), index, diagnostic.highlightRoutes || []);
+    appendMappedJson(output, rendered, output.textContent.length, diagnostic.message);
+  }
+
+  // 输入变化立即清除旧结果；停止输入 300 毫秒后解析一次，避免连续输入时重复解析。
+  const $ = id => document.getElementById(id);
+  let lastResult = null;
+  let lastDiagnostic = null;
+  let outputText = "";
+  let outputLinks = [];
+  let sourceIndex = null;
+  let highlightSignature = "";
+  let selectionFrame = null;
+  let fileVersion = 0;
+  let autoConvertTimer = null;
+  function cancelAutoConvert() {
+    clearTimeout(autoConvertTimer);
+    autoConvertTimer = null;
+  }
+  function status(message, kind = "idle") {
+    $("status").textContent = message;
+    $("status").dataset.kind = kind;
+  }
+  function invalidate(message = "输入已更新，等待解析。") {
+    cancelAutoConvert();
+    $("copy-input").disabled = !$("input").value.trim();
+    lastResult = null;
+    lastDiagnostic = null;
+    outputText = "";
+    outputLinks = [];
+    sourceIndex = null;
+    clearSourceHighlight();
+    $("output").replaceChildren();
+    $("locate-error").disabled = true;
+    $("copy").disabled = true;
+    $("download").disabled = true;
+    $("result-info").textContent = "等待转换";
+    $("timing").textContent = "—";
+    $("warnings").hidden = true;
+    status(message);
+  }
+  function scheduleAutoConvert() {
+    const hasInput = $("input").value.trim().length > 0;
+    invalidate(hasInput ? "数据已更新，停止输入后自动解析…" : "等待输入。粘贴数据后将自动解析。");
+    if (hasInput) autoConvertTimer = setTimeout(convert, 300);
+  }
+  function formatOutput() {
+    if (lastDiagnostic) { renderDiagnosticPreview(lastDiagnostic); return; }
+    if (!lastResult) return;
+    clearSourceHighlight();
+    const rendered = mappedJson(lastResult.value, Number($("indent").value), indexTrace(lastResult.trace, lastResult.multiple));
+    outputText = rendered.text;
+    $("output").replaceChildren();
+    appendMappedJson($("output"), rendered);
+    $("result-info").textContent = `${lastResult.count} 条消息 · ${outputText.length.toLocaleString()} 个字符`;
+  }
+  function convert() {
+    invalidate("正在解析…");
+    const start = performance.now();
+    let bytes, options, inputIndex;
+    try {
+      bytes = parseInput($("input").value, $("format").value);
+      inputIndex = indexInput($("input").value, $("format").value, bytes.length);
+      sourceIndex = inputIndex;
+      $("source-info").textContent = `${bytes.length.toLocaleString()} 字节`;
+      const offsetText = $("offset").value.trim();
+      const tailText = $("tail").value.trim();
+      if (!/^\d+$/.test(offsetText)) throw new Error("跳过包头字节数必须是非负整数。");
+      if (!/^\d+$/.test(tailText)) throw new Error("跳过包尾字节数必须是非负整数。");
+      options = { offset: Number(offsetText), tail: Number(tailText), multiple: $("multiple").checked };
+      lastResult = decodeMessagePack(bytes, options);
+      formatOutput();
+      $("copy").disabled = false;
+      $("download").disabled = false;
+      $("timing").textContent = `${(performance.now() - start).toFixed(1)} ms`;
+      status(`转换成功 · 已解析 ${lastResult.consumed.toLocaleString()} 字节${Number(offsetText) ? `，跳过包头 ${Number(offsetText)} 字节` : ""}${Number(tailText) ? `，跳过包尾 ${Number(tailText)} 字节` : ""}。`, "success");
+      if (lastResult.notes.length) {
+        $("warnings").textContent = lastResult.notes.join("\n");
+        $("warnings").hidden = false;
+      }
+    } catch (error) {
+      let message = error.message;
+      if (error instanceof DecodeError) {
+        message = `字节偏移 ${error.offset}（0x${error.offset.toString(16).toUpperCase()}，从 0 开始）：${message}`;
+        if (bytes) {
+          const begin = Math.max(0, error.offset - 6), end = Math.min(bytes.length, error.offset + 8);
+          message += `\n附近字节 [${begin}…${end})：` + Array.from(bytes.subarray(begin, end), (byte, i) => begin + i === error.offset ? `[${hexTable[byte].toUpperCase()}]` : hexTable[byte].toUpperCase()).join(" ");
+          if (error.offset === bytes.length) message += " [文件末尾]";
+        }
+      }
+      const diagnostic = error instanceof InputError
+        ? { title: "输入格式错误", message: error.message, inputError: error }
+        : bytes && options ? diagnoseMessagePack(bytes, options, error) : { title: "格式检查失败", message };
+      invalidate();
+      lastDiagnostic = diagnostic;
+      sourceIndex = inputIndex || null;
+      renderDiagnosticPreview(diagnostic);
+      $("locate-error").disabled = !$("output").querySelector(".diagnostic-mark");
+      $("result-info").textContent = diagnostic.inferred ? "结构推测预览 · 原始输入未修改 · 不可导出" : "格式诊断 · 不可导出";
+      $("timing").textContent = `${(performance.now() - start).toFixed(1)} ms`;
+      status(diagnostic.inferred ? `${diagnostic.path} 长度异常：声明 ${diagnostic.declared} 项，推测 ${diagnostic.suggested} 项。点击“定位异常”查看红色部分。` : message, "error");
+    }
+  }
+  $("locate-error").addEventListener("click", () => {
+    const output = $("output"), marker = output.querySelector(".diagnostic-mark");
+    if (!marker) return;
+    output.scrollTop += marker.getBoundingClientRect().top - output.getBoundingClientRect().top - 12;
+    output.focus();
+  });
+  $("convert").addEventListener("click", convert);
+  function handleInputUpdate() {
+    fileVersion++;
+    $("source-info").textContent = `${$("input").value.length.toLocaleString()} 个输入字符`;
+    scheduleAutoConvert();
+  }
+  $("input").addEventListener("input", handleInputUpdate);
+  $("input").addEventListener("scroll", syncInputHighlight, { passive: true });
+  if (typeof ResizeObserver === "function") new ResizeObserver(syncInputHighlight).observe($("input"));
+  else window.addEventListener("resize", syncInputHighlight);
+  document.addEventListener("selectionchange", () => {
+    if (selectionFrame !== null) return;
+    selectionFrame = requestAnimationFrame(() => { selectionFrame = null; updateSourceSelection(); });
+  });
+  for (const id of ["format", "multiple"]) $(id).addEventListener("change", () => {
+    fileVersion++;
+    if (id === "format") $("source-info").textContent = "输入格式已切换";
+    scheduleAutoConvert();
+  });
+  for (const id of ["offset", "tail"]) $(id).addEventListener("input", () => { fileVersion++; scheduleAutoConvert(); });
+  $("indent").addEventListener("change", formatOutput);
+  $("example").addEventListener("click", () => {
+    fileVersion++;
+    $("format").value = "hex";
+    $("offset").value = "0";
+    $("tail").value = "0";
+    $("multiple").checked = false;
+    $("input").value = "84 A4 6E 61 6D 65 A3 42 4C 45 A2 6F 6B C3 A4 72 73 73 69 D0 D6 A4 64 61 74 61 93 01 02 03";
+    convert();
+  });
+  $("clear").addEventListener("click", () => {
+    fileVersion++;
+    $("input").value = "";
+    $("file").value = "";
+    $("offset").value = "0";
+    $("tail").value = "0";
+    $("multiple").checked = false;
+    $("source-info").textContent = "等待输入";
+    invalidate("已清空。粘贴新数据即可继续转换。");
+    $("input").focus();
+  });
+  $("import").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const version = ++fileVersion;
+    invalidate("正在读取文件…");
+    try {
+      checkSize(file.size);
+      if (!file.size) throw new Error("所选文件为空。");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (version !== fileVersion) return;
+      $("format").value = "hex";
+      $("input").value = Array.from(bytes, byte => hexTable[byte].toUpperCase()).join(" ");
+      $("offset").value = "0";
+      $("tail").value = "0";
+      $("multiple").checked = false;
+      convert();
+      $("source-info").textContent = `${file.name} · ${bytes.length.toLocaleString()} 字节`;
+    } catch (error) { if (version === fileVersion) status(error.message, "error"); }
+    finally { if (version === fileVersion) event.target.value = ""; }
+  });
+  // 输入与 JSON 结果共用复制逻辑；异步完成时先确认内容没有变化。
+  async function copyEditor(id, label) {
+    const editor = $(id);
+    const readText = () => id === "output" ? outputText : editor.value;
+    const text = readText();
+    if (!text.trim()) return;
+    const version = fileVersion;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(text);
+    } catch {
+      if (version !== fileVersion || readText() !== text) return;
+      editor.focus();
+      if (id === "output") {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else editor.select();
+      let copied = false;
+      try { copied = document.execCommand("copy"); } catch { /* 保留选区供手动复制。 */ }
+      if (!copied) { status("浏览器限制了自动复制。内容已选中，请按 Ctrl+C（Mac 为 ⌘C）。"); return; }
+    }
+    if (version === fileVersion && readText() === text) status(label + "已复制到剪贴板。", "success");
+  }
+  $("copy-input").addEventListener("click", () => copyEditor("input", "输入数据"));
+  $("copy").addEventListener("click", () => { if (lastResult) return copyEditor("output", "JSON"); });
+  $("paste-input").addEventListener("click", async () => {
+    const button = $("paste-input");
+    const version = ++fileVersion; // 清除、输入或导入新数据后，忽略之前尚未完成的粘贴。
+    button.disabled = true;
+    try {
+      if (!navigator.clipboard?.readText) throw new Error("Clipboard API unavailable");
+      const text = await navigator.clipboard.readText();
+      if (version !== fileVersion) return;
+      if (!text.trim()) { status("剪贴板中没有可粘贴的文本。"); return; }
+      if (text.length > MAX_BYTES * 7) { status("剪贴板文本过长，请减少数据量。", "error"); return; }
+      $("input").value = text;
+      $("input").focus();
+      handleInputUpdate();
+    } catch {
+      if (version !== fileVersion) return;
+      $("input").focus();
+      $("input").select();
+      status("浏览器限制了自动粘贴。输入框已选中，请按 Ctrl+V（Mac 为 ⌘V），粘贴后会自动解析。");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("download").addEventListener("click", () => {
+    if (!lastResult) return;
+    const url = URL.createObjectURL(new Blob([outputText], { type: "application/json;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "messagepack.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    status("JSON 文件已交给浏览器下载。", "success");
+  });
+  document.addEventListener("keydown", event => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); convert(); }
+  });
+  </script>
+</body>
+</html>
